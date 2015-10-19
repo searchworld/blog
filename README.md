@@ -1,0 +1,2 @@
+# blog
+some study notes
