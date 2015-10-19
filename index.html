@@ -1,70 +1,68 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>use cscope in emacs by searchworld</title>
+    <meta name="viewport" content="width=640">
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/core.css" media="screen">
+    <link rel="stylesheet" href="stylesheets/mobile.css" media="handheld, only screen and (max-device-width:640px)">
     <link rel="stylesheet" href="stylesheets/github-light.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+
+    <script type="text/javascript" src="javascripts/modernizr.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="javascripts/headsmart.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        $('#main_content').headsmart()
+      })
+    </script>
+    <title>blog by searchworld</title>
   </head>
+
   <body>
-    <div class="wrapper">
+    <a id="forkme_banner" href="https://github.com/searchworld/blog">View on GitHub</a>
+    <div class="shell">
+
       <header>
-        <h1>use cscope in emacs</h1>
-        <p>emacs cscope</p>
-
-        <p class="view"><a href="https://github.com/searchworld/blog">View the Project on GitHub <small>searchworld/blog</small></a></p>
-
-
-        <ul>
-          <li><a href="https://github.com/searchworld/blog/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/searchworld/blog/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/searchworld/blog">View On <strong>GitHub</strong></a></li>
-        </ul>
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <h1>blog</h1>
+            <h2></h2>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
       </header>
-      <section>
-        <h2>
-<a id="安装" class="anchor" href="#%E5%AE%89%E8%A3%85" aria-hidden="true"><span class="octicon octicon-link"></span></a>安装</h2>
 
-<p>sudo apt-get install cscope cscope-el
-在.emacs文件添加
-(require 'xcscope)</p>
-
-<h2>
-<a id="生成索引数据库" class="anchor" href="#%E7%94%9F%E6%88%90%E7%B4%A2%E5%BC%95%E6%95%B0%E6%8D%AE%E5%BA%93" aria-hidden="true"><span class="octicon octicon-link"></span></a>生成索引数据库</h2>
-
-<p>C-c s a             设定初始化的目录，一般是你代码的根目录
-C-s s I             对目录中的相关文件（C文件）建立列表并进行索引
-如果要自己生成数据库索引文件可用如下命令：
-find . -name "<em>.h" -o -name "</em>.c" -o -name "<em>.cc" -o -name "</em>.s" -o -name "*.S"&gt; cscope.files
-cscope -bk -i cscope.files</p>
-
-<h2>
-<a id="查找" class="anchor" href="#%E6%9F%A5%E6%89%BE" aria-hidden="true"><span class="octicon octicon-link"></span></a>查找</h2>
-
-<p>C-c s s             查找符号
-C-c s g             寻找全局的定义
-C-c s c             看看指定函数被哪些函数所调用
-C-c s C             看看指定函数调用了哪些函数
-C-c s e             寻找正则表达式
-C-c s f             寻找文件
-C-c s i             看看指定的文件被哪些文件include
-C-c s u             返回上一个查找的地方（mark）</p>
-
-<p>在cscope缓冲区中如果有多个查找结果可通过n和p指向下一个和上一个定义，其他查找快捷键也不再需要C-c s前缀
-如此基本满足c代码的阅读要求了。</p>
+      <section id="downloads">
+        <span class="inner">
+          <a href="https://github.com/searchworld/blog/zipball/master" class="zip"><em>download</em> .ZIP</a><a href="https://github.com/searchworld/blog/tarball/master" class="tgz"><em>download</em> .TGZ</a>
+        </span>
       </section>
+
+
+      <span class="banner-fix"></span>
+
+
+      <section id="main_content">
+        <p>I will write my study notes here. Hope some help to you!</p>
+      </section>
+
       <footer>
-        <p>This project is maintained by <a href="https://github.com/searchworld">searchworld</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+        <span class="ribbon-outer">
+          <span class="ribbon-inner">
+            <p>this project by <a href="https://github.com/searchworld">searchworld</a> can be found on <a href="https://github.com/searchworld/blog">GitHub</a></p>
+          </span>
+          <span class="left-tail"></span>
+          <span class="right-tail"></span>
+        </span>
+        <p>Generated with <a href="https://pages.github.com">GitHub Pages</a> using Merlot</p>
+        <span class="octocat"></span>
       </footer>
+
     </div>
-    <script src="javascripts/scale.fix.js"></script>
+
     
   </body>
 </html>
