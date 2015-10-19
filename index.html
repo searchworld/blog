@@ -1,65 +1,70 @@
 <!doctype html>
-<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
-<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on https://github.com/jonrohan -->
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>use cscope in emacs by searchworld</title>
 
-  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen">
-  <link rel="stylesheet" href="stylesheets/github-dark.css">
-  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-  <script type="text/javascript" src="javascripts/script.js"></script>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>use cscope in emacs</h1>
+        <p>emacs cscope</p>
 
-  <title>readme</title>
-  <meta name="description" content="some study notes">
+        <p class="view"><a href="https://github.com/searchworld/blog">View the Project on GitHub <small>searchworld/blog</small></a></p>
 
-  <meta name="viewport" content="width=device-width,initial-scale=1">
 
-</head>
+        <ul>
+          <li><a href="https://github.com/searchworld/blog/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/searchworld/blog/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/searchworld/blog">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h2>
+<a id="安装" class="anchor" href="#%E5%AE%89%E8%A3%85" aria-hidden="true"><span class="octicon octicon-link"></span></a>安装</h2>
 
-<body>
+<p>sudo apt-get install cscope cscope-el
+在.emacs文件添加
+(require 'xcscope)</p>
 
-  <div class="wrapper">
-    <header>
-      <h1 class="title">readme</h1>
-    </header>
-    <div id="container">
-      <p class="tagline">some study notes</p>
-      <div id="main" role="main">
-        <div class="download-bar">
-        <div class="inner">
-          <a href="https://github.com/searchworld/blog/tarball/master" class="download-button tar"><span>Download</span></a>
-          <a href="https://github.com/searchworld/blog/zipball/master" class="download-button zip"><span>Download</span></a>
-          <a href="https://github.com/searchworld/blog" class="code">View readme on GitHub</a>
-        </div>
-        <span class="blc"></span><span class="trc"></span>
-        </div>
-        <article class="markdown-body">
-          <h1>
-<a id="blog" class="anchor" href="#blog" aria-hidden="true"><span class="octicon octicon-link"></span></a>blog</h1>
+<h2>
+<a id="生成索引数据库" class="anchor" href="#%E7%94%9F%E6%88%90%E7%B4%A2%E5%BC%95%E6%95%B0%E6%8D%AE%E5%BA%93" aria-hidden="true"><span class="octicon octicon-link"></span></a>生成索引数据库</h2>
 
-<p>I will write my study notes here. Hope some help to you!</p>
-        </article>
-      </div>
+<p>C-c s a             设定初始化的目录，一般是你代码的根目录
+C-s s I             对目录中的相关文件（C文件）建立列表并进行索引
+如果要自己生成数据库索引文件可用如下命令：
+find . -name "<em>.h" -o -name "</em>.c" -o -name "<em>.cc" -o -name "</em>.s" -o -name "*.S"&gt; cscope.files
+cscope -bk -i cscope.files</p>
+
+<h2>
+<a id="查找" class="anchor" href="#%E6%9F%A5%E6%89%BE" aria-hidden="true"><span class="octicon octicon-link"></span></a>查找</h2>
+
+<p>C-c s s             查找符号
+C-c s g             寻找全局的定义
+C-c s c             看看指定函数被哪些函数所调用
+C-c s C             看看指定函数调用了哪些函数
+C-c s e             寻找正则表达式
+C-c s f             寻找文件
+C-c s i             看看指定的文件被哪些文件include
+C-c s u             返回上一个查找的地方（mark）</p>
+
+<p>在cscope缓冲区中如果有多个查找结果可通过n和p指向下一个和上一个定义，其他查找快捷键也不再需要C-c s前缀
+如此基本满足c代码的阅读要求了。</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/searchworld">searchworld</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
     </div>
-    <footer>
-      <div class="owner">
-      <p><a href="https://github.com/searchworld" class="avatar"><img src="https://avatars0.githubusercontent.com/u/9975132?v=3&amp;s=60" width="48" height="48"></a> <a href="https://github.com/searchworld">searchworld</a> maintains <a href="https://github.com/searchworld/blog">readme</a></p>
-
-
-      </div>
-      <div class="creds">
-        <small>This page generated using <a href="https://pages.github.com/">GitHub Pages</a><br>theme by <a href="https://twitter.com/jonrohan/">Jon Rohan</a></small>
-      </div>
-    </footer>
-  </div>
-  <div class="current-section">
-    <a href="#top">Scroll to top</a>
-    <a href="https://github.com/searchworld/blog/tarball/master" class="tar">tar</a><a href="https://github.com/searchworld/blog/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
-    <p class="name"></p>
-  </div>
-
-  
-</body>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
 </html>
