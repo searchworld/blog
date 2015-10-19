@@ -1,0 +1,24 @@
+安装
+sudo apt-get install cscope cscope-el
+在.emacs文件添加
+(require 'xcscope)
+
+生成索引数据库
+C-c s a             设定初始化的目录，一般是你代码的根目录
+C-s s I             对目录中的相关文件（C文件）建立列表并进行索引
+如果要自己生成数据库索引文件可用如下命令：
+find . -name "*.h" -o -name "*.c" -o -name "*.cc" -o -name "*.s" -o -name "*.S"> cscope.files
+cscope -bk -i cscope.files
+
+查找
+C-c s s             查找符号
+C-c s g             寻找全局的定义
+C-c s c             看看指定函数被哪些函数所调用
+C-c s C             看看指定函数调用了哪些函数
+C-c s e             寻找正则表达式
+C-c s f             寻找文件
+C-c s i             看看指定的文件被哪些文件include
+C-c s u             返回上一个查找的地方（mark）
+
+在cscope缓冲区中如果有多个查找结果可通过n和p指向下一个和上一个定义，其他查找快捷键也不再需要C-c s前缀
+如此基本满足c代码的阅读要求了。
