@@ -11,7 +11,7 @@
     - Stream
 
 ## Limitation
-providing low-latency, inaccurate, or speculative results，通常和batch系统一起，提供最终一致性的结果，接[Lambda架构](http://nathanmarz.com/blog/how-to-beat-the-cap-theorem.html)，这个架构存在的[问题](https://oreil.ly/2LSEdqz)，需要维护两套系统，最后可能需要维护最终状态。
+providing low-latency, inaccurate, or speculative results，通常和batch系统一起，提供最终一致性的结果，即[Lambda架构](http://nathanmarz.com/blog/how-to-beat-the-cap-theorem.html)，这个架构存在的[问题](https://www.oreilly.com/ideas/questioning-the-lambda-architecture)，需要维护两套系统，最后可能需要维护最终状态。
 
 stream system要打败batch system只需要在两方面上下功夫：
 - correctness，这就和batch system等价，其核心是consistent storage，因此需要对状态不停做checkpoint且在机器失败的时候仍然保持一致性。strong consistent对于exact-once processing是必须的。
@@ -69,7 +69,7 @@ skew的关键。
 - 窗口完整性，不需要考虑延迟到达的数据
 - 只关注事件被系统观察到的状态，比如监控每秒的请求数
 
-不足：如果这些事件有相应的事件时间，那processing-time window如果要反应这些事件的真实情况就要求事件按照event time的顺序到达。
+不足：如果这些事件有相应的事件时间，那processing-time window如果要反映这些事件的真实情况就要求事件按照event time的顺序到达。
 
 ### Windowing by event time
 可以创建固定窗口和动态窗口(比如Session)。event-time窗口要比实际的窗口长，有两个缺点：
@@ -78,8 +78,56 @@ skew的关键。
 
 
 # Chapter 2. The What, Where,When, and How of Data Processing
+## Roadmap
 Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
-- Triggers，声明window的输出和外部信号相比什么时候materialized的机制，提供了什么时候emit输出的灵活性，可以看做是流控机制用来控制结果要在什么时候materialized。另一个角度可以看做是相机的快门，控制什么时候拍照(结果输出)
-- Watermarks
-- Accumulation
+- Triggers，声明相对于外部信号window的输出什么时候materialized的机制，提供了什么时候emit输出的灵活性，可以看做是流控机制用来控制结果要在什么时候materialized。另一个角度可以看做是相机的快门，控制什么时候拍照(结果输出)
 
+同时trigger也让一个window的输出被观察多次称为可能，这可以用来对结果进行refine。
+- Watermarks，用event-time来描述输入完整性的概念，时间为`X`的watermark表示：所有event-time小于`X`的输入数据已经被观察到。因此可以用来测量unbounded数据的进度
+- Accumulation，一个accumulation mode用来指定同一个窗口多个结果直接的关系，这些结果可以没有任何关系，也可以有重叠
+
+对于unbounded data processing都很重要的问题：
+- **What** results are calculated? 由pipeline中的transformation类型回答，可以是sum或者机器学习，batch processing也要回答这个问题
+- **Where** in event time are results calculated? 在pipeline中使用event-time window来解决，比如fix/slided/session等
+- **When** in processing time are results materialized? 使用trigger和watermark解决，
+- **How** do refinements of results relate? 使用accumulation回答，可以是discarding或者accumulated等
+
+## Batch Foundations: What and Where
+### What: Transformations
+### Where: Windowing
+
+## Going Streaming: When and How
+### When: Triggers
+trigger定义window的输出在process-time(也可以是其它的time domain，比如使用event-time衡量的watermark)时间点产生。window的每个输出称为window的一个**pane**。
+
+概念上通常有两种有用的trigger类型，实际的应用基本使用这两种的一种或者两者结合。
+- Repeated update triggers。周期性为window产生一个更新过的pane，这些更新可以是每条记录之后，也可以是一个processing-time delay。周期的选择主要是latency和cost的权衡
+- Completeness triggers。只有在认为window的输入对于某个阈值来说是完整的才会产生一个pane。这有点类似batch processing，主要区别是这里的完整性是建立在window的上下文上，而不是所有input
+
+前者比较常见，实现和理解起来也比较简单，类似数据库中的materialized views；后者比较类似batch processing，提供了missing data和late data这样的工具。
+
+per-record trigger可以实时得到结果，对于数据量比较大的场景消耗比较大。有两种processing-time delay:
+- `aligned delays`，将processing-time分成对齐的region，spark streaming中的micro batch就是这种类型，其优势是可预测性，在同一时间点得到结果；劣势是所有更新同时发生，导致突发性的workload
+- `unaligned delays`，delay和窗口中观察到的数据有关，workload的分布比较均匀，对于大数据量是个比较好的选择
+
+### When: Watermarks
+event-time域输入完整性的时间概念，系统用来衡量相对record中event-time的进度和完整性。有两种类型：
+- Perfect watermarks，用于知道输入数据的所有信息的场景，不会有late data的场景，所有数据都是on time，对于大部分输入这是不太现实的
+- Heuristic watermarks，根据输入的信息尽可能得到准确的进度评估，在许多场景下可以非常准确，但是仍然可能存在late data。
+
+watermark构成了`completeness triggers`的基础，只有系统materializes一个window的输出，我们才认为这个window的输入是完整的，这对于需要知道`missing data`的场景很重要，比如outer-join。
+
+watermark也有不足的地方：
+- Too slow，当watermark由于数据未处理产生delay，会直接反应到输出的delay。如果对latency比较敏感，watermark不太适合
+- Too fast，如果heuristic watermark错误的advance，会产生很多的late data
+
+将`Repeated update trigger`和`Completeness trigger`结合可以解决上面太快和太慢的问题
+
+### When: Early/On-Time/Late Triggers FTW!
+`early/on-time/late trigger`将pane分成几个部分：
+- 0个或者多个`early panes`，watermark还没到达，`repeated update trigger`周期触发产生的结果，解决上面too slow的问题
+- 一个`on-time pane`，`completeness/watermark trigger`在watermark经过window右侧的时候产生的结果，提供了断言输入已经完成，可以解决`missing data`的问题
+- 一个或者多个`late panes`，watermark已经经过window，`repeated update trigger`在`late data`到来的时候触发，对于perfect watermark总是0个。
+
+### When: Allowed Lateness (i.e., Garbage Collection)
+使用`early/on-time/late trigger`需要一直保留所有的state，因为不知道late data什么时候会到来，这对于unbounded data是不太现实的，因此需要限制window的生命周期，最简单的方式是给出late data的范围，当watermark超过这个范围则对应的窗口关闭，超过这个范围的数据认为是不需要处理的，直接丢弃。
