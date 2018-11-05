@@ -130,4 +130,19 @@ watermark也有不足的地方：
 - 一个或者多个`late panes`，watermark已经经过window，`repeated update trigger`在`late data`到来的时候触发，对于perfect watermark总是0个。
 
 ### When: Allowed Lateness (i.e., Garbage Collection)
-使用`early/on-time/late trigger`需要一直保留所有的state，因为不知道late data什么时候会到来，这对于unbounded data是不太现实的，因此需要限制window的生命周期，最简单的方式是给出late data的范围，当watermark超过这个范围则对应的窗口关闭，超过这个范围的数据认为是不需要处理的，直接丢弃。
+使用`early/on-time/late trigger`需要一直保留所有的state，因为不知道late data什么时候会到来，这对于unbounded data是不太现实的，因此需要限制window的生命周期，最简单的方式是给出late data的范围，当watermark超过这个范围则对应的窗口关闭，超过这个范围的数据认为是不需要处理的，直接丢弃。这个时间可以有两种指定方式：
+- watermark超过窗口右侧10分钟，和event-time绑定，不会出现window没有处理late data的机会
+- processing-time超过右侧窗口10分钟(spark使用的方式)，如果机器crash则有可能出现late data没有被处理
+
+### How: Accumulation
+trigger可能产生多个pane，这就存在一个问题：要怎么对多个pane的结果进行处理。accumulation有三种模式：
+- Discarding，当一个新的pane产生的时候，之前存储的state被丢弃，即pane之间没有什么联系，用于下游的消费者自己进行accumulation的场景，比如每次只产生一个delta，下游自己进行sum
+- Accumulating，每个pane建立在之前pane的基础上，原来的state继续保留，未来的输入累加到这个state上。用于后面的结果可以覆盖之前结果的场景，比如结果存储在hbase中
+- Accumulating and retracting，类似accumulation模式，但是每次产生一个新的pane，会对之前的pane产生一个retraction，表达的语义是：我之前告诉你结果是X，但是这个结果是错误的，删除我上次给你的X，用这次的Y替代。下面两种场景下很有用：
+  - 下游的consumer对数据按照不同的维度进行regroup，新的结果的key可能和之前的key完全不同，不能简单的覆盖
+  - 当使用动态窗口(比如session window)，由于窗口合并，新的值可能会替换多个之前的窗口。这时候很难直接根据新的窗口得到替换的旧窗口，需要显示给定retraction
+
+这三种accumulation的方式的消耗从小到大。
+
+
+# Chapter 3
