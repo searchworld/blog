@@ -145,4 +145,47 @@ trigger可能产生多个pane，这就存在一个问题：要怎么对多个pan
 这三种accumulation的方式的消耗从小到大。
 
 
-# Chapter 3
+# Chapter 3 Watermarks
+一个前提假设：每条消息都关联一个逻辑上的事件时间戳。这个假设是合理的，因为连续到达的unbounded数据说明有输入输入的持续产生。
+
+消息被pipeline ingest，然后process，最后标志为complete；每条消息的状态可能是`in-flight`，表示已经被接收，但是还没有处理完成，或者`completed`，表示不需要对这条消息再做任何处理。随着时间的推移，越来越多的消息加入到`in-flight`，越来越多的消息从`in-flight`转为`completed`，`in-flight`最左侧的点对应pipeline中未处理的最老的数据，可以用这个值来定义`watermark`: 还没有完成的最老的work对应的单调递增的时间戳。这个定义有两个属性：
+- Completeness，如果watermark已经超过时间T，单调属性保证T之前的on-time的消息不需要再被处理，因此可以发出T之前的聚合结果。即我们知道什么时候可以正确关闭一个窗口
+- Visibility，如果消息因为某种原因stuck在pipeline的某个地方，watermark不能前进，我们可以检查阻止watermark前进消息来找到问题的根源
+
+## Source Watermark Creation
+perfect和heuristic watermark的区别：前者保证计算所有数据，后者可以有late data。一旦创建之后就保持不变，具体是什么类型主要依赖上游的source的属性。
+
+## Watermark Propagation
+概念上可以认为watermark随着数据处理超过之后从系统流过。有多个stage组成的pipeline每个stage会追踪自己的watermark，其值是当前stage之前的input和stages的的一个函数。因此越往后的stage其watermark越晚。
+
+在stage的边界上定义watermark有利于理解pipeline中每个stage的相对进度，还可以及时独立分发及时的结果。按边界定义有两种watermark:
+- `input watermark`，捕获当前stage的所有upstream的进度，对于source，input watermark是一个source相关的创建watermark的方法；对于nosource stage，input watermark是所有上游output watermark的最小值
+- `output watermark`，反应stage本身的进度，定义为stage的input watermark和stage中`all nonlate data active messages`的event-time的最小值。这里的`active`依赖这个stage执行的动作和系统的实现，通常包括准备做Aggregation的缓存数据，pending output data等
+
+`input watermark` - `output watermark`可以得到这个stage引入的event-time latency。比如一个执行10s window聚合的窗口的stage相对输出会有10s或者更大的延迟，对输入和输出watermark的定义提供了整个pipeline的watermark的递归关系。
+
+每个stage中的处理不是一个整体，可以分成概念上的几个component组成的flow，每个组件都对output watermark有贡献。component的具体属性依赖stage的内容和系统实现，概念上component的实现是作为一个buffer，active message可以保留到某个操作完成。然后可能会将数据写入state，用于后面的延迟聚合，延迟聚合之后可能会将结果写入output buffer，供downstream stage消费。我们可以使用每个buffer自己的watermark来跟踪每个buffer，这样可以方便的看到watermark在哪里stuck，同时stage中所有buffer的最小的watermark构成了这个stage的watermark。因此output watermark可以是下面某一个的最小值：
+- Per-source watermark—for each sending stage.
+- Per-external input watermark—for sources external to the pipeline
+- Per-state component watermark—for each type of state that can be written
+- Per-output buf er watermark—for each receiving stage
+
+### Watermark Propagation and Output Timestamps
+watermark不允许向后移动，因此一个window有效的output timestamp从第一个nonlate元素开始到无限。实践中一般取下面三种作为output timestamp:
+- End of the window，如果要让output timestamp可以代表window bound，这是唯一的安全选择，同时也是smoothest watermark progression。
+- Timestamp of first nonlate element，如果要让watermark尽量保守，这是一个好选择。带来的问题是 watermark progress更容易受阻
+- Timestamp of a specific element，有效场景下随机选一个元素的timestamp是个好选择，比如对一个点击流和一个查询流做join，有些人可能会觉得点击流的时间更重要，有些人可能会认为查询流的更重要。
+
+### The Tricky Case of Overlapping Windows
+对于sliding window，可能会出现结果被delay的情况。**没太理解？**
+
+## Percentile Watermarks
+除了使用最小的event time来测量watermark，还可以使用消息分布的百分比还测量，表达的含义是：已经处理了具有较早timestamp的所有事件的这个百分比数量。对于几乎正确就可以满足的场景，`percentile watermark`可以前进的更快更顺滑，因为丢掉了watermark分布的长尾。
+
+## Processing-Time Watermarks
+使用event-time watermark不足以区分出一个系统是在处理old data还是delay了。换句话说，一个系统在快速处理一个小时前的数据且没有delay；一个系统在处理实时数据，但是延时了一个小时，通过event-time watermark是无法区分开的。
+
+processing-time watermark的定义和event-time watermark一样，只是后者使用尚未完成的最老的工作的event-time作为watermark，前者使用尚未完成的最老的operation的processing-time作为watermark。processing-time watermark delay的原因可能是一条消息延迟从一个stage传递到另一个stage，也可能是读取状态或者外部数据的I/O延时，或者处理异常。通常需要管理员介入处理。因此processing-time watermark是一个区分data latency和system latency的工具，同时也可以用来垃圾回收临时状态。
+
+
+
