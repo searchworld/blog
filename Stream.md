@@ -187,5 +187,49 @@ watermark不允许向后移动，因此一个window有效的output timestamp从�
 
 processing-time watermark的定义和event-time watermark一样，只是后者使用尚未完成的最老的工作的event-time作为watermark，前者使用尚未完成的最老的operation的processing-time作为watermark。processing-time watermark delay的原因可能是一条消息延迟从一个stage传递到另一个stage，也可能是读取状态或者外部数据的I/O延时，或者处理异常。通常需要管理员介入处理。因此processing-time watermark是一个区分data latency和system latency的工具，同时也可以用来垃圾回收临时状态。
 
+## Case Studies
+`Google Cloud Dataflow`中的watermark实现是通过一个集中式的`watermark aggregator agent`来实现。这里面需要保证多个worker不会并发去修改state，优势是：
+- watermark来自一个source，方便调试监控
+- source watermark创建，比如有些需要全局信息的source
 
+Flink使用in-band的方式，即watermark和data stream 被同步in-band发送出去。这种方式的优势是：
+- 低延时
+- 没有单点失败
+- 内置的可扩展性
+
+
+# Chapter 4. Advanced Windowing
+
+## When/Where: Processing-Time Windows
+适合类似使用监控的场景，比如web service QPS。在我们的系统中，作为一等公民的window都是基于event-time的，要得到processing-time window有两种方式：
+- Trigger，忽略event-time(比如使用global window)，使用Trigger提供processing-time的window的快照
+- Ingest time，在数据到达的时候赋予ingest time，然后使用正常的event-time window。spark 1.x就是使用这种方式
+
+这两者基本等价，但是对于多stage的场景可能会**细微差别(?)**：Trigger方式在每个stage去划分window，同样的数据可能进入不同的window；ingest-time版本不会出现这种情况
+
+## Where: Session Windows
+有两个特征：
+- data-driven window，window的大小和位置与输入有关，
+- unaligned window
+
+先对每个元素求window，然后做merge
+
+## Where: Custom Windowing
+一个自定义的window主要包括两部分：
+- window assignment，将每个元素放入一个初始化的window
+- window merging(可选的)，允许在group的时候对window做merge，让window随着时间进化称为可能，比如上面的session window
+
+### Variations on Fixed Windows
+普通的fixed window很简单，只需要window assignment这一步，根据时间戳、window大小和offset将元素放入合适的窗口。这种window是aligned的，即所有窗口会在同一个时间点触发，可能造成很高的负载。
+
+fixedwindow有两个变种：
+- Unaligned fixed windows。相同key是align的，不同的key可以不对其，这样可以把负载分散开
+- Per-element/key fixed windows，每个key可以指定自己的window大小(在meta信息中指定)
+
+### Variations on Session Windows
+典型的session window实现如下：
+- assignment，每个元素最初被放入一个proto-session window，这个窗口的从元素的开始时间开始延伸到gap duration
+- merging，在group的时候所有合适的窗口会进行排序，任何重叠的窗口会合并到一起
+
+session window的一个变种：Bounded sessions，即session的大小是固定的，不允许超过一定大小(可能是时间或者元素，或者其他维度)
 
