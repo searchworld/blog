@@ -233,3 +233,45 @@ fixedwindow有两个变种：
 
 session window的一个变种：Bounded sessions，即session的大小是固定的，不允许超过一定大小(可能是时间或者元素，或者其他维度)
 
+
+# Chapter 5. Exactly-once and Side Effect
+## Accuracy Versus Completeness
+Beam SDK可以让用户配置等待late data到达的时间，超过这个时间到达的都会被丢弃。这个特性只对completeness有效，对accuracy没用：所有及时出现的record都会被精确处理(exactly-once)，其他记录会被丢弃。事实上batch系统也同样存在这个问题，只提供accurate，但是不一定是complete的结果。
+
+### Side Effects
+Beam和Dataflow的一个特性是用户植入的自定义代码会被作为pipeline的一部分去执行，Dataflow不保证这个代码对每条记录只执行一次，可能会执行多次，甚至同时在多个worker上执行，当worker失败的时候这个才能保证at-least-once。结果是非幂等的side effect不保证只执行一次。比如执行的时候需要通过外部服务获取信息，多次执行外部服务可能返回不同的结果；另外pipeline最终要写入sink，这个过程可能多次写入。
+
+### Problem definition
+在三个层面上讨论Dataflow中exactly-once的实现：
+- shuffle，每条记录只被shuffle一次
+- source，每条记录只被产生一次
+- sink，保证每次sink产生准确的结果
+
+## Ensuring Exactly Once in Shuffle
+Dataflow中shuffle通过worker直接的RPC实现，为了保证record在shuffle的时候不丢失，Dataflow使用upstream backup，即sender会重试RPC知道收到acknowledge，同时Dataflow也保证即使sender失败也会重试RPC，从而保证每条记录只被发送一次。
+
+RPC返回failure并不代表这次调用一定是失败的，也有可能成功；只有RPC返回成功才真正说明调用成功。因此Dataflow的shuffle需要别的机制来保证exactly-once。每条记录会携带一个唯一identifier，每个receiver会保存所有已经被看到和处理的id，每次一个记录到达就会从这个列表中查看id是否已经存在，如果存在则是重复的。Dataflow使用k/v store来保存去重的记录
+
+### Addressing Determinism
+要实现上面的去重方式需要很多考虑，但是Dataflow允许产生nondeterministic输出，即`ParDo`执行两次可以产生不同的结果(因为重试)，这让两次输出产生相同的id变得困难。Dataflow通过checkpoint让nondeterministic的结果变得deterministic。每个transform的输出和唯一的id都会在输出到下一个stage之前checkpoint到稳定的存储里。shuffle delivery只是简单replay已经checkpoint的结果，不确定性的用户代码不会再被运行。
+
+### Performance
+如果每次record都要去id表查找，每个step都要checkpoint，这会对性能带来很大影响。Dataflow采用两个优化：
+- Graph Optimization，在执行之前Dataflow会对pipeline做很多优化，其中一个是`fusion`，即把多个logical step不在fusion成一个stage，不需要为每个step保存exactly-once状态。同时多个step跑在一个进程上，大大减少进程间传递的数据。另外Dataflow还会优化满足交换律和结合律的combine操作，先在本地部分combine再发送出去，从而较少需要传输的数据。
+- Bloom Filters。大多数记录都是不会重复的，这个特性刚好可以使用布隆过滤器来实现。bloom filter如果说一个元素在集合里，则这个元素不一定在；但是如果说不在集合里，那这个元素就一定不在。随着时间的推移，布隆过滤器的效率会下降，Dataflow为每个record attach一个时间戳，每10分钟的范围产生一个过滤器，当数据到达的时候根据时间戳找到对应的过滤器。
+
+### Garbage Collection
+每个key都要保存一个id列表，最终存储会爆满，不能一直保存。上面说Dataflow为每条记录加了时间戳(即processing-time)来做bucket bloom filter，Dataflow基于这个时间戳计算一个garbage-collection watermark。当watermark前进的时候说明之前所有记录都已经处理了，因此不用担心已经被垃圾回收的id再次出现(直接丢弃即可)。
+
+## Exactly Once in Sources
+Beam提供了API用于将数据读进pipeline，如果读取失败会重试，需要保证每条唯一的记录只被处理一次。对于大多数source，Dataflow会透明的处理掉这个过程，这些source是deterministic，比如文件或者kafka，系统可以为每条记录生成一个唯一的id。对于non-deterministic source，source自己需要告诉系统record的id是什么。如果source为每条记录提供唯一的id，且告诉Dataflow需要去重，则具有相同id的记录会被过滤掉。
+
+## Exactly Once in Sinks
+最简单的方式是使用built-in sinks，这些sink保证不会产生重复的记录。如果要用自己的sink，可以通过保证side-effect operation是幂等的来保证exactly-once。如果side-effect operation不是幂等的，可以利用Dataflow提供了保证：DoFn的输出只有一个版本可以通过shuffle的边界(通过使用`Reshuffle`，**没太理解?**)。
+
+## Other Systems
+### Apache Spark Streaming
+microbatch，底层是连续的RDDs，使用batch system的exactly-once属性来保证正确性，这种方式可能会增加输出的延迟。spark假设所有的操作都是幂等的，在失败的时候可以replay。也提供了checkpoint机制，但是主要是为了性能，当然也可以用来实现非幂等的side effect
+
+### Apache Flink
+Flink提供exactly-once的方式比较特殊，采用周期性计算snapshot的方式。snapshot和计算是同时进行的，不会有太大的延迟。使用snapshot需要几个假设：1. 很少会有失败，不然失败roll back到上一个snapshot成本很高 2. snapshot可以快速完成，对于大集群可能会是一个挑战 3. task是静态分配给worker。
