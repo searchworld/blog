@@ -76,6 +76,20 @@ find yarn info in http://localhost:8088/
 
 ## Run a Flink job on YARN
 in the fink dir:
+
+### one session per job
 ```
 ./bin/flink run -m yarn-cluster -yn 2 -yjm 1024m -ytm 1024m ./examples/batch/WordCount.jar
+```
+
+### one session multi jobs
+```
+start a session in one terminal :
+./bin/yarn-session.sh -n 4 -jm 1024m -tm 1024m
+
+submit a batch job in another terminal:
+./bin/flink run ./examples/batch/WordCount.jar --input hdfs:///user/ben/input/core-site.xml --output hdfs:///user/ben/output/result.txt
+
+submit a streaming job in another terminal:
+./bin/flink run examples/streaming/SocketWindowWordCount.jar --port 9000
 ```
