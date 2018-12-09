@@ -82,3 +82,103 @@ S&T理论对accumulation没有什么改动。
         - `Watermark`提供相对于event-time的输入完整性概念
         - `accumulation mode`决定了stream的类型，可以是包含delta，也可以只value，甚至是之前值的retraction
     - table -> table: (none)
+
+
+# Chapter 7. The Practicalities of Persistent State
+persistent state实际上就是第6章讨论的table，加上一个要求：必须是存储在不容易丢失的介质中。
+
+## Motivation
+- The Inevitability of Failure，对于bounded DataSet更倾向于重新开始处理
+- Correctness and Efficiency
+    - 保证ephemeral inputs正确性的基础，当机器发生失败的时候可以从这个persistent state恢复，不管上游数据是否已经发生变化
+    - 最小化重复性工作和需要持久化的数据
+
+## Implicit State
+persistent state的最佳实践实际上是always persist everything 和 never persist anything中做权衡。
+
+### Raw Grouping
+row grouping类似list appending：每次有新元素到达这个group，就追加到这个group的list末尾。输入是一个<K,V>，返回<K,Iterable<V>>。存在的问题：
+- 需要存储非常多的数据
+- 如果有多个trigger触发可能会导致数据重复
+- checkpoint数据多，恢复慢
+
+### Incremental Combining
+incremental combining的基础是许多Aggregation有下面的属性：
+- 有一个中间形式，表示compact N个输入的partial progress，比这些输入的full list更加紧凑，比如求均值的时候只要保持sum和count
+- combine操作要满足交换律和结合律，意味着我们可以按照任意顺序来做聚合。可以通过两种方式来优化：
+    - Incrementalization，由于顺序无关，每次有新元素过来就可以直接combine，而不用维护一个有序集合，这样减少了数据量，同时也将负载分配的比较平均
+    - Parallelization，可以现在某些机器上做subgroup，最后再做聚合，因此可以把计算分配到多台机器上。可并行说明可以兼容merging window，在做merge的时候只需要O(1)的复杂度
+
+## Generalized State
+raw和incremental grouping不够灵活，如果要支持更通用的persistent state，需要有三个维度的灵活性：
+- 数据结构。Raw grouping本质上是一个appended list，incremental combining是single value。但是仍然需要类似map tree graph set等其他灵活的数据结构，每种数据结构都有自己的访问模式和cost。
+- 读写颗粒度。以最优效率读写数据的能力，即在给定时间内只读取需要的数据。这和上一条数据结构的访问模式紧密结合，比如Set可以结合bloom过滤器；另外还可以通过异步batch的方式提供效率
+- 处理过程的调度，即可以和event-time或者processing-time结合。trigger在这里提供了一部分灵活性，completeness trigger将processing和watermark经过window的结尾结合起来，repeated update trigger将processing和processing-time的周期进度结合起来，但是对于有些类型灵活性还是不够。在Beam中通过`timer`来提供处理调度的灵活性，这是一个特殊的state，绑定event-time或者processing-time的某一个时间点，当到达这个时间点的时候触发一个方法，去处理具体的逻辑
+
+### Case study
+Conversion Attribution
+
+# Chapter 8. Streaming SQL
+## What Is Streaming SQL?
+这章很多讨论还是假想的或者系统实现的理想情况，很多功能在很多系统上都还没有实现。而且这里的讨论很多来源于`Calcite`/`Flink`/`Beam`社区的讨论，本章主要提炼出这次讨论的主要观点。
+
+### Relational Algebra
+关系代数是SQL的理论基础，是用来描述有名称有类型的元组的数据之间关系的数学方式，其核心是relation本身，即元组的一个集合。在典型的数据库中，relation是一个数据库表或者查询的结果。
+
+关系代数更重要的属性是闭包属性：对合法的relation使用关系代数中的任何操作会产生另一个relation，换句话说relation是关系代数的硬通货，所有操作都是消费relation，产生relation。历史上对stream SQL的支持最后失败都是因为不满足这个闭包属性，将stream和传统的relation区别对待，提供新的操作对这两个进行转化，并限制一些操作对stream使用。同时这些系统对一些关键属性不支持，比如乱序数据。因此其使用率不高。如果要让stream SQL推广起来，必须让streaming称为一等公民
+
+
+### Time-Varying Relations
+将streaming融入SQL的关键是扩展关系代数的核心-relation，用来表示随着时间变化的数据集，而不是在某个时间点的数据集；即我们需要`time-varying relations`而不是`point-in-time relations`。从关系代数的角度，`time-varying relations`是经典的relation随时间进化。比如用户事件数据，随着时间过去，用户产生新的事件，数据集持续增加和进化。如果在某个时间点去观察，那就是classic relation；但是如果随着时间观察数据集，就是`time-varying relations`。从另一个角度，如果classic relation是二维坐标，那`time-varying relations`就是多了时间轴的三位坐标。随着relation的变化，在时间轴上都会有snapshot。
+
+![TVR](https://github.com/searchworld/blog/blob/master/image/TVR.png)
+
+这里将时间维度铺平，变成4个不同的小窗口，每个窗口对应一个time range内的数据，互相之间时间是连续的。从图上可以看出，`time-varying relations`只是一系列的classic relations，每个relation独立存在于相邻的一个时间范围，在这个时间范围内这个relation是不变的。这意味着对TVR使用relational operator等价于按顺序对每个classic relation独立使用relational operator。更进一步，独立对关联时间区间的classic relations使用relational operator会产生相同时间区间的relation序列，即结果是一个响应的TVR。这里给出了两个很重要的属性：
+- classic relational algebra的所有operator对TVR仍然有效，且仍然能得到预期结果
+- 关系代数的`closure property`应用到TVR的时候仍然是完好的
+
+简洁的表述就是：classic relation的所有规则对TVR仍然是一样的。因此对SQL并不需要什么大的修改，只需要将之前应用到单个relation的方式变成应用到一个序列的TVR
+
+上面定义的TVR更多是理论上的，数据很容易就膨胀变大，对于频繁变化的大数据集也不是很方便。这个时候需要和Stream&Table理论结合。
+
+### Streams and Tables
+Table: TVR是一系列的classic relation，而relation等价于table，观察一个TVR就会产生观察时刻的point-in-time relation snapshot。SQL 2011也提出了`temporal tables`的概念，可以保持不同时间版本的table，使用`AS OF SYSTEM TIME`可以查询历史的版本。
+
+Stream: 稍微有点不同，不是每次发生变化的时候获取整个relation，而是获取导致这些snapshot的`sequence of changes`，需要定义两个假设的关键字：
+- `STREAM`关键字，希望返回捕获TVR进化的event-by-event stream，可以认为是对relation使用per-record trigger
+- 一个特殊的`Sys.Undo`列，用于识别召回的row
+
+![TVR_STREAM](https://github.com/searchworld/blog/blob/master/image/TVR_STREAM.png)
+
+`STREAM`的表示方式比较紧凑，只捕获有变化的数据；TVR table的方式比较清晰，可以看到不同时间点多的全貌。但是这两者表达方式的数据是等价的(前提是数据版本是相同的，即数据足够准确)，对应的是table/stream的两面性。但是数据足够准备一般是没法满足的，TVR table一般对应最新版本的snapshot，stream一般只保留最近一段时间的数据。这里的关键点是steam和table是同一个事情的两面性，都是编码`time-varying relations`有效的方式。
+
+## Looking Backward: Stream and Table Biases
+### The Beam Model: A Stream-Biased Approach
+![Stream bias in the Beam Model approach](https://github.com/searchworld/blog/blob/master/image/stsy_0801.png)
+所有逻辑transformation都是通过stream连接起来的，在beam中这些transformation是**PTransforms**，应用到**PCollections**产生新的**PCollections**，而**PCollections**在Beam中就是stream，因此Beam是stream-biased的。在Beam模型中stream是货币，而table总是特别对待的，要嘛从source和sink中抽象出来，要嘛隐藏在grouping和trigger后面。
+
+由于Beam是在stream的维度上运行的，如果涉及到table就需要进行转换，保持table是隐藏的。这些转换包括：
+- 消费table的source通常是hardcode table被trigger的方式，用户没法自己指定。
+- 写table的sink通常是hardcore group input stream的方式。有可能会提供一定的灵活度。
+- 对于`grouping/ungrouping operations`，Beam提供足够的灵活度在table和stream中进行转换。
+
+在Beam中，trigger没法直接用到table上，有两个选项可用(**这里的trigger不理解？**)：
+- Predeclaration of triggers，trigger在pipeline中table之前的某个点指定，是`forward-propagating`
+- Post-declaration of triggers，trigger在pipeline中table之后指定，是`backward-propagating.`
+
+在Beam模型中提供了很多方式配合实现隐藏的table，但是table在能被观察之前需要先被trigger，即使table的内容是要消费的最终数据。这是现在Beam模型的一个缺点，可以通过支持stream和table作为一等公民来实现。
+
+### The SQL Model: A Table-Biased Approach
+![Table bias with a final HAVING clause](https://github.com/searchworld/blog/blob/master/image/stsy_0804.png)
+
+在SQL中table是一等公民，但是table并不总是显示的，隐式的table也可以存在，比如使用having语句之后就有一个table是隐式的。stream全部都是隐式的，需要转为table或者从table转回，主要有几种情况：
+- Input table，在某个时间点隐式触发，产生对应时间点table的一个snapshot的一个bounded stream
+- Output table，可能是query最后的grouping操作产生或者对中间结果隐式的grouping
+- Grouping/ungrouping operations，这些操作只在grouping维度提供足够的灵活性。Classic SQL提供了为grouping提供了丰富的操作，但是只提供了一种类型的隐式ungrouping操作：intermediate table的上游数据已经全部到达的时候才触发。
+
+**Materialized views**
+![Table bias in materialized views](https://github.com/searchworld/blog/blob/master/image/stsy_0805.png)
+
+和上面的区别在于`SCAN`变成`SCAN-AND-STREAM`，除了对scan时候table的snapshot产生一个bounded stream，还会对之后的变化产生unbounded stream
+
+## Looking Forward: Toward Robust Streaming SQL
