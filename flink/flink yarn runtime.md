@@ -172,7 +172,7 @@ JobSubmitHandler.handleRequest(...)
 ```
 `JobSubmitHandler`差不多对应client端的处理：
 - 获取jobGraph
-- 后去jar包
+- 获取jar包
 - 获取其他artifact
 - 上传上面这些资源
 - 通过gateway提交job
