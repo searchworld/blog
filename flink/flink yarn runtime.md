@@ -196,6 +196,10 @@ Dispatcher.submitJob
 ```
 
 ### JobMaster
+`JobManager`是早期的实现，对应的runner是`YarnApplicationMasterRunner`，对应的`descriptor`是`LegacyYarnClusterDescriptor`，已经不再使用，`FlinkYarnSessionCli.getClusterDescriptor`直接返回`YarnClusterDescriptor`。
+
+`JobMaster`是新的实现，对应`JobManagerRunner`，实际的入口是`YarnSessionClusterEntrypoint`，最终是由`Dispatcher`使用
+
 Job真的是执行由`JobMaster`处理:
 ```
 JobMaster.start(final JobMasterId newJobMasterId, final Time timeout)
