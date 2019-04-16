@@ -39,6 +39,7 @@ YarnSessionClusterEntrypoint.main
 		    JobManagerMetricGroup jobManagerMetricGroup = null;
 		    T dispatcher = null; // 负责接收job，产生一个JobManager去执行，这里是StandaloneDispatcher
 ```
+在这里可以看出`Dispatcher`是整个`AppMaster`的组件
 
 # Submit a job
 ## flink
@@ -168,7 +169,7 @@ JobSubmitHandler.handleRequest(...)
 	Collection<Path> jarFiles = getJarFilesToUpload(requestBody.jarFileNames, nameToFile);
 	Collection<Tuple2<String, Path>> artifacts = getArtifactFilesToUpload(requestBody.artifactFileNames, nameToFile);
   CompletableFuture<JobGraph> finalizedJobGraphFuture = uploadJobGraphFiles(gateway, jobGraphFuture, jarFiles, artifacts, configuration);
-	CompletableFuture<Acknowledge> jobSubmissionFuture = finalizedJobGraphFuture.thenCompose(jobGraph -> gateway.submitJob(jobGraph, timeout));
+	CompletableFuture<Acknowledge> jobSubmissionFuture = finalizedJobGraphFuture.thenCompose(jobGraph -> gateway.submitJob(jobGraph, timeout)); // gateway是StandaloneDispatcher
 ```
 `JobSubmitHandler`差不多对应client端的处理：
 - 获取jobGraph
@@ -178,6 +179,7 @@ JobSubmitHandler.handleRequest(...)
 - 通过gateway提交job
 
 ### Dispatcher
+整个session集群负责接收job，产生对应的`JobMaster`，负责每个Job级别的协调
 上面的gateway是`StandaloneDispatcher`，对应的submitJob在`Dispatcher`上实现:
 ```
 Dispatcher.submitJob
