@@ -16,7 +16,7 @@ providing low-latency, inaccurate, or speculative results，通常和batch系统
 stream system要打败batch system只需要在两方面上下功夫：
 - correctness，这就和batch system等价，其核心是consistent storage，因此需要对状态不停做checkpoint且在机器失败的时候仍然保持一致性。strong consistent对于exact-once processing是必须的。
 
-  达到一致性的三篇论文[MillWheel](http://bit.ly/2Muob70),[spark streaming](http://bit.ly/2Mrq8Be),[Flink snapshot](http://bit.ly/2t4DGK0)
+  达到一致性的三篇论文[MillWheel](http://bit.ly/2Muob70),[spark streaming](http://bit.ly/2Mrq8Be),[Flink snapshot](http://bit.ly/2t4DGK0)
 - Tools for reasoning about time，这里可以超越batch system。这是处理unbounded, unordered data of varying eventtime
 skew的关键。
 
@@ -26,7 +26,7 @@ skew的关键。
 
 如果不需要关注event time，系统会简单很多。
 
-在一个理想的世界里，这两个时间应该是一样的，即事件发生之后立刻被处理。现实中这两个时间差别可能很大，event time和Processing time的关系不是确定的，因此无法通过分析Processing time得到event time，基于processing time的window得到的结果不是完整的。
+在一个理想的世界里，这两个时间应该是一样的，即事件发生之后立刻被处理。现实中这两个时间差别可能很大，event time和Processing time的关系不是确定的，因此无法通过分析Processing time得到event time，基于processing time的window得到的结果不是完整的。
 
 不要尝试将unbounded stream转成有限的最终可以得到完整结果的batch，completeness应该作为一些特殊场景的优化，而不是所有场景都需要的语义。
 
@@ -37,10 +37,10 @@ skew的关键。
 
 ## Unbounded Data: Batch
 ### Fixed windows
-在流处理前unbounded data已经收集成有限的固定窗口大小的有限数据，再进入batch engine
+在流处理前unbounded data已经收集成有限的固定窗口大小的有限数据，再进入batch engine
 
 ### Session
-典型的Session可以是被超过一段inactive时间而终止的用户活动区间。一个Session可能会跨batch。
+典型的Session可以是被超过一段inactive时间而终止的用户活动区间。一个Session可能会跨batch。
 
 ## Unbounded Data: Streaming
 
@@ -62,7 +62,7 @@ skew的关键。
 ## 两种不同的时间窗口
 
 ### Windowing by processing time
-历史上这种window更常见，系统将进来的数据缓存起来，直到超过一段processing time
+历史上这种window更常见，系统将进来的数据缓存起来，直到超过一段processing time
 
 优势：
 - 简单，只要做一下buffer，当时间到达的时候关闭窗口
