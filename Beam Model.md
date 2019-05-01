@@ -56,7 +56,7 @@ skew的关键。
 ### Windowing
 按时间边界分为有限的块。
 - Fixed windows，固定时间长度
-- Sliding windows, fixed-length & fixed-period，如果period小于length，则window之间重叠；如果两者相等，则等价于固定窗口；如果period大于length，则类似采样
+- Sliding windows, fixed-length & fixed-period，如果period小于length，则window之间重叠；如果两者相等，则等价于固定窗口；如果period大于length，则类似采样
 - Sessions，动态窗口，当inactive超过timeout的时候，之前的事件就切出一个Session，可以用于分析用户行为
 
 ## 两种不同的时间窗口
@@ -69,7 +69,7 @@ skew的关键。
 - 窗口完整性，不需要考虑延迟到达的数据
 - 只关注事件被系统观察到的状态，比如监控每秒的请求数
 
-不足：如果这些事件有相应的事件时间，那processing-time window如果要反映这些事件的真实情况就要求事件按照event time的顺序到达。
+不足：如果这些事件有相应的事件时间，那processing-time window如果要反映这些事件的真实情况就要求事件按照event time的顺序到达。
 
 ### Windowing by event time
 可以创建固定窗口和动态窗口(比如Session)。event-time窗口要比实际的窗口长，有两个缺点：
@@ -78,7 +78,7 @@ skew的关键。
 
 # Chapter 2. The What, Where,When, and How of Data Processing
 ## Roadmap
-Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
+Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
 - Triggers，声明相对于外部信号window的输出什么时候materialized的机制，提供了什么时候emit输出的灵活性，可以看做是流控机制用来控制结果要在什么时候materialized。另一个角度可以看做是相机的快门，控制什么时候拍照(结果输出)
 
 同时trigger也让一个window的输出被观察多次称为可能，这可以用来对结果进行refine。
