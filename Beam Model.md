@@ -81,7 +81,7 @@ skew的关键。
 Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
 - Triggers，声明相对于外部信号window的输出什么时候materialized的机制，提供了什么时候emit输出的灵活性，可以看做是流控机制用来控制结果要在什么时候materialized。另一个角度可以看做是相机的快门，控制什么时候拍照(结果输出)
 
-同时trigger也让一个window的输出被观察多次称为可能，这可以用来对结果进行refine。
+同时trigger也让一个window的输出被观察多次成为可能，这可以用来对结果进行refine。
 - Watermarks，用event-time来描述输入完整性的概念，时间为`X`的watermark表示：所有event-time小于`X`的输入数据已经被观察到。因此可以用来测量unbounded数据的进度
 - Accumulation，一个accumulation mode用来指定同一个窗口多个结果直接的关系，这些结果可以没有任何关系，也可以有重叠
 
@@ -216,7 +216,7 @@ Flink使用in-band的方式，即watermark和data stream 被同步in-band发送�
 ## Where: Custom Windowing
 一个自定义的window主要包括两部分：
 - window assignment，将每个元素放入一个初始化的window
-- window merging(可选的)，允许在group的时候对window做merge，让window随着时间进化称为可能，比如上面的session window
+- window merging(可选的)，允许在group的时候对window做merge，让window随着时间进化成为可能，比如上面的session window
 
 ### Variations on Fixed Windows
 普通的fixed window很简单，只需要window assignment这一步，根据时间戳、window大小和offset将元素放入合适的窗口。这种window是aligned的，即所有窗口会在同一个时间点触发，可能造成很高的负载。
