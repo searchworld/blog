@@ -83,7 +83,7 @@ Chapter1说明了两个概念：event-time vs processing-time 和 window。新�
 
 同时trigger也让一个window的输出被观察多次成为可能，这可以用来对结果进行refine。
 - Watermarks，用event-time来描述输入完整性的概念，时间为`X`的watermark表示：所有event-time小于`X`的输入数据已经被观察到。因此可以用来测量unbounded数据的进度
-- Accumulation，一个accumulation mode用来指定同一个窗口多个结果直接的关系，这些结果可以没有任何关系，也可以有重叠
+- Accumulation，一个accumulation mode用来指定同一个窗口多个结果之间的关系，这些结果可以没有任何关系，也可以有重叠
 
 对于unbounded data processing都很重要的问题：
 - **What** results are calculated? 由pipeline中的transformation类型回答，可以是sum或者机器学习，batch processing也要回答这个问题
@@ -247,7 +247,7 @@ Beam和Dataflow的一个特性是用户植入的自定义代码会被作为pipel
 - sink，保证每次sink产生准确的结果
 
 ## Ensuring Exactly Once in Shuffle
-Dataflow中shuffle通过worker直接的RPC实现，为了保证record在shuffle的时候不丢失，Dataflow使用upstream backup，即sender会重试RPC知道收到acknowledge，同时Dataflow也保证即使sender失败也会重试RPC，从而保证每条记录只被发送一次。
+Dataflow中shuffle通过worker之间的RPC实现，为了保证record在shuffle的时候不丢失，Dataflow使用upstream backup，即sender会重试RPC知道收到acknowledge，同时Dataflow也保证即使sender失败也会重试RPC，从而保证每条记录只被发送一次。
 
 RPC返回failure并不代表这次调用一定是失败的，也有可能成功；只有RPC返回成功才真正说明调用成功。因此Dataflow的shuffle需要别的机制来保证exactly-once。每条记录会携带一个唯一identifier，每个receiver会保存所有已经被看到和处理的id，每次一个记录到达就会从这个列表中查看id是否已经存在，如果存在则是重复的。Dataflow使用k/v store来保存去重的记录
 
