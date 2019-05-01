@@ -37,7 +37,7 @@ skew的关键。
 
 ## Unbounded Data: Batch
 ### Fixed windows
-在流处理前unbounded data已经收集成有限的固定窗口大小的有限数据，再进入batch engine
+在流处理前unbounded data已经收集成有限的固定窗口大小的有限数据，再进入batch engine
 
 ### Session
 典型的Session可以是被超过一段inactive时间而终止的用户活动区间。一个Session可能会跨batch。
@@ -48,7 +48,7 @@ skew的关键。
 用于时间无关的场景，所有逻辑都是数据驱动的
 
 - Filtering，比如过滤掉某个域名的访问日志，这是时间无关的
-- Inner joins，当对两个unbounded stream做join的时候只关心来自两个source的元素都已经到达，逻辑中没有时间的维度。outer join由于需要知道另一方的数据是否已经完整，本质上还是需要引入window的概念
+- Inner joins，当对两个unbounded stream做join的时候只关心来自两个source的元素都已经到达，逻辑中没有时间的维度。outer join由于需要知道另一方的数据是否已经完整，本质上还是需要引入window的概念
 
 ### Approximation algorithms
 比如approximate Top-N和streaming k-means，输入一个unbounded源，输出一个近似的结果。这种算法只有少数几个，而且很复杂。这些算法的设计中通常都会有时间元素，而且通常是processing time
@@ -56,35 +56,35 @@ skew的关键。
 ### Windowing
 按时间边界分为有限的块。
 - Fixed windows，固定时间长度
-- Sliding windows，fixed-length & fixed-period，如果period小于length，则window之间重叠；如果两者相等，则等价于固定窗口；如果period大于length，则类似采样
+- Sliding windows, fixed-length & fixed-period，如果period小于length，则window之间重叠；如果两者相等，则等价于固定窗口；如果period大于length，则类似采样
 - Sessions，动态窗口，当inactive超过timeout的时候，之前的事件就切出一个Session，可以用于分析用户行为
 
 ## 两种不同的时间窗口
 
 ### Windowing by processing time
-历史上这种window更常见，系统将进来的数据缓存起来，直到超过一段processing time
+历史上这种window更常见，系统将进来的数据缓存起来，直到超过一段processing time
 
 优势：
 - 简单，只要做一下buffer，当时间到达的时候关闭窗口
 - 窗口完整性，不需要考虑延迟到达的数据
 - 只关注事件被系统观察到的状态，比如监控每秒的请求数
 
-不足：如果这些事件有相应的事件时间，那processing-time window如果要反映这些事件的真实情况就要求事件按照event time的顺序到达。
+不足：如果这些事件有相应的事件时间，那processing-time window如果要反映这些事件的真实情况就要求事件按照event time的顺序到达。
 
 ### Windowing by event time
 可以创建固定窗口和动态窗口(比如Session)。event-time窗口要比实际的窗口长，有两个缺点：
 - Buffering，窗口更长，需要buffer更多数据。持久化存储比较便宜，因此这个问题不大，另外有些场景(比如sum)可以增量进行，不需要缓存所有数据
-- Completeness，对于许多类型的输入可以通过watermark来进行启发式估计。对于需要绝对准确的场景(比如账单)，只能定义什么时候对窗口求值，并随着时间推移对这个结果进行refine
+- Completeness，对于许多类型的输入可以通过watermark来进行启发式估计。对于需要绝对准确的场景(比如账单)，只能定义什么时候对窗口求值，并随着时间推移对这个结果进行refine
 
 
-# Chapter 2. The What, Where,When, and How of Data Processing
+# Chapter 2. The What, Where,When, and How of Data Processing
 ## Roadmap
-Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
+Chapter1说明了两个概念：event-time vs processing-time 和 window。新增三个概念：
 - Triggers，声明相对于外部信号window的输出什么时候materialized的机制，提供了什么时候emit输出的灵活性，可以看做是流控机制用来控制结果要在什么时候materialized。另一个角度可以看做是相机的快门，控制什么时候拍照(结果输出)
 
 同时trigger也让一个window的输出被观察多次称为可能，这可以用来对结果进行refine。
 - Watermarks，用event-time来描述输入完整性的概念，时间为`X`的watermark表示：所有event-time小于`X`的输入数据已经被观察到。因此可以用来测量unbounded数据的进度
-- Accumulation，一个accumulation mode用来指定同一个窗口多个结果直接的关系，这些结果可以没有任何关系，也可以有重叠
+- Accumulation，一个accumulation mode用来指定同一个窗口多个结果直接的关系，这些结果可以没有任何关系，也可以有重叠
 
 对于unbounded data processing都很重要的问题：
 - **What** results are calculated? 由pipeline中的transformation类型回答，可以是sum或者机器学习，batch processing也要回答这个问题
