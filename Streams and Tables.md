@@ -2,7 +2,7 @@
 第一部分讲的是`cardinality`(基数，即数量，对应bounded和unbounded)，这部分开始讲`constitution`(组成方式，即stream和table)。从`cardinality`到`constitution`的切换有点类似经典物理学和量子力学的比较。
 
 ## Stream-and-Table Basics Or: a Special Theory of Stream and Table Relativity
-S&T的基本思想来自数据库，熟悉SQL的都会熟悉table及其属性：table包含行列数据，每行都通过一个唯一key唯一标识。数据库的底层数据结构是一个`append-only log`，随着transaction被用在数据库上，这些transaction先记录到一个log上，然后再作用到数据库上将更新materialize。在S&T上面这个log就是stream。从这个角度我们可以知道如何从stream创建table: **应用stream中的更新的transaction log的结果就是table**。从table创建stream: **stream是table的changelog。**table-to-stream的典型例子是`materialized views`，即指定table上的一个query，数据库将其视为另一个first-class table，本质上是query的一个cache，系统保证其内容随着table内容的变化跟着变化，通过跟踪源表的changelog，每次将变化用到`materialized view`上。结合这两点可以得到Stream和Table的相对论:
+S&T的基本思想来自数据库，熟悉SQL的都会熟悉table及其属性：table包含行列数据，每行都通过一个唯一key唯一标识。数据库的底层数据结构是一个`append-only log`，随着transaction被用在数据库上，这些transaction先记录到一个log上，然后再作用到数据库上将更新materialize。在S&T上面这个log就是stream。从这个角度我们可以知道如何从stream创建table: **应用stream中的更新的transaction log的结果就是table**。从table创建stream: **stream是table的changelog。** table-to-stream的典型例子是`materialized views`，即指定table上的一个query，数据库将其视为另一个first-class table，本质上是query的一个cache，系统保证其内容随着table内容的变化跟着变化，通过跟踪源表的changelog，每次将变化用到`materialized view`上。结合这两点可以得到Stream和Table的相对论:
 - Streams → tables，对update的stream进行聚合得到table
 - Tables → streams，对一个table的change的观察得到stream
 
@@ -21,7 +21,7 @@ S&T的基本思想来自数据库，熟悉SQL的都会熟悉table及其属性：
 这里讨论如何将S&T理论应用到MapReduce。MapReduce由Map和Reduce组成，实际上又可以分成6个部分：
 - MapRead，读入输入数据，预处理成K/V结构的作为Map的输入
 - Map，从上一步获取K/V，输出0或者多个K/V值
-- MapWrite，将上一阶段输出的相同Key的值做聚合，一key/value-list的格式写入持久化存储，这一步实际上市group-by-key-and-checkpoint的过程
+- MapWrite，将上一阶段输出的相同Key的值做聚合，以key/value-list的格式写入持久化存储，这一步实际上是group-by-key-and-checkpoint的过程
 - ReduceRead，消费上一步shuffle保存下来的数据，转成key/value-list的格式给下一个阶段
 - Reduce，重复消费一个key和其对应的value-list，输出0或者多个值，可以仍然和key保持关系(可选)
 - ReduceWrite，将上一步的输出写入output datastore
@@ -37,7 +37,7 @@ MapWrite和ReduceRead通常称为Shuffle，现在更多的是对应到Source和S
     ReduceRead类似MapRead，Reduce类似Map。当ReduceWrite的输出和key相关的时候也和MapWrite一样，但是如果输出和key无关的话，ReduceWrite会将每个记录当做有一个唯一key来看待。这里的key很关键，类似SQL中的主键，是必须的。
 
 ### Reconciling with Batch Processing
-上面的过程回答了第一个问题：如何将Batch系统应用到stream/table理论，即table-stream-stream-table-stream-stream-table。
+上面的过程回答了第一个问题：如何将Batch系统应用到stream/table理论，即table-stream-stream-table-stream-stream-table。
 
 第二个问题stream和bound/unbounded 数据的关系，从上面的过程也可以看到，stream只是运动中的数据，和bound/unbounded没有直接关系
 
@@ -133,7 +133,7 @@ Conversion Attribution
 
 ![TVR](https://github.com/searchworld/blog/blob/master/image/TVR.png)
 
-这里将时间维度铺平，变成4个不同的小窗口，每个窗口对应一个time range内的数据，互相之间时间是连续的。从图上可以看出，`time-varying relations`只是一系列的classic relations，每个relation独立存在于相邻的一个时间范围，在这个时间范围内这个relation是不变的。这意味着对TVR使用relational operator等价于按顺序对每个classic relation独立使用relational operator。更进一步，独立对关联时间区间的classic relations使用relational operator会产生相同时间区间的relation序列，即结果是一个响应的TVR。这里给出了两个很重要的属性：
+这里将时间维度铺平，变成4个不同的小窗口，每个窗口对应一个time range内的数据，互相之间时间是连续的。从图上可以看出，`time-varying relations`只是一系列的classic relations，每个relation独立存在于相邻的一个时间范围，在这个时间范围内这个relation是不变的。这意味着对TVR使用relational operator等价于按顺序对每个classic relation独立使用relational operator。更进一步，独立对关联时间区间的classic relations使用relational operator会产生相同时间区间的relation序列，即结果是一个相应的TVR。这里给出了两个很重要的属性：
 - classic relational algebra的所有operator对TVR仍然有效，且仍然能得到预期结果
 - 关系代数的`closure property`应用到TVR的时候仍然是完好的
 
@@ -150,11 +150,12 @@ Stream: 稍微有点不同，不是每次发生变化的时候获取整个relati
 
 ![TVR_STREAM](https://github.com/searchworld/blog/blob/master/image/TVR_STREAM.png)
 
-`STREAM`的表示方式比较紧凑，只捕获有变化的数据；TVR table的方式比较清晰，可以看到不同时间点多的全貌。但是这两者表达方式的数据是等价的(前提是数据版本是相同的，即数据足够准确)，对应的是table/stream的两面性。但是数据足够准备一般是没法满足的，TVR table一般对应最新版本的snapshot，stream一般只保留最近一段时间的数据。这里的关键点是steam和table是同一个事情的两面性，都是编码`time-varying relations`有效的方式。
+`STREAM`的表示方式比较紧凑，只捕获有变化的数据；TVR table的方式比较清晰，可以看到不同时间点多的全貌。但是这两者表达方式的数据是等价的(前提是数据版本是相同的，即数据足够准确)，对应的是table/stream的两面性。但是数据足够准确一般是没法满足的，TVR table一般对应最新版本的snapshot，stream一般只保留最近一段时间的数据。这里的关键点是steam和table是同一个事情的两面性，都是编码`time-varying relations`有效的方式。
 
 ## Looking Backward: Stream and Table Biases
 ### The Beam Model: A Stream-Biased Approach
 ![Stream bias in the Beam Model approach](https://github.com/searchworld/blog/blob/master/image/stsy_0801.png)
+
 所有逻辑transformation都是通过stream连接起来的，在beam中这些transformation是**PTransforms**，应用到**PCollections**产生新的**PCollections**，而**PCollections**在Beam中就是stream，因此Beam是stream-biased的。在Beam模型中stream是货币，而table总是特别对待的，要嘛从source和sink中抽象出来，要嘛隐藏在grouping和trigger后面。
 
 由于Beam是在stream的维度上运行的，如果涉及到table就需要进行转换，保持table是隐藏的。这些转换包括：
